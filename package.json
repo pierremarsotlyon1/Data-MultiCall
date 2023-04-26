@@ -1,0 +1,19 @@
+{
+  "type" : "module",
+  "name": "data_provider",
+  "version": "1.0.0",
+  "description": "",
+  "main": "data.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "eth-multicall": "^1.4.0",
+    "ethereum-multicall": "^2.17.0",
+    "multicall.js": "^1.4.3",
+    "web3": "^1.9.0"
+  }
+}
