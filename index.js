@@ -4,8 +4,13 @@ import { ethers } from 'ethers';
 import { Multicall } from 'ethereum-multicall';
 import gaugeAbi from "./abi/gauge.json" assert { type: "json" };
 
+
 // Add all the needed gauges here
 const gaugeList = [
+    "0xcB2c2AF6c3E88b4a89aa2aae1D7C8120EEe9Ad0e",
+    "0x3FB2975E00B3dbB97E8315a5ACbFF6B38026FDf3",
+    "0x57AB3b673878C3fEaB7f8FF434C40Ab004408c4c",
+    "0xCB664132622f29943f67FA56CCfD1e24CC8B4995",
     "0x462253b8f74b72304c145db0e4eebd326b22ca39",
     "0xd662908ada2ea1916b3318327a97eb18ad588b5d",
     "0xb87ec044152c49e52f7c429b2b9dbacb7ea8fb15",
@@ -239,16 +244,19 @@ const addressesList = [
     "0x52f541764E6e90eeBc5c21Ff570De0e2D63766B6"
 ]
 
-// Number of decimals to use
-const numberOfDecimals = 2;
+// Timestamp to use for calling the method "getCappedRelativeWeight" on the gauge
+// Use 0 to get the current value, otherwise use a timestamp in the past
+const timestamp = 0;
+
+// RPC node to use for the Ethereum mainnet
+const rpcNode = "https://eth.llamarpc.com";
 
 ////////////////////////////////////////////////////////////////
 /// --- Nothing to change below this line!!
 ////////////////////////////////////////////////////////////////
 
-
 // Create a provider for the Ethereum mainnet, using public Llama RPC node
-let provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
+let provider = new ethers.providers.JsonRpcProvider(rpcNode);
 
 // Create a new instance of the multicall object
 const multicall = new Multicall({ ethersProvider: provider, tryAggregate: true });
@@ -256,9 +264,13 @@ const multicall = new Multicall({ ethersProvider: provider, tryAggregate: true }
 // Create a contract call context for each gauge
 const contractCallContext = gaugeList.map((gauge) => {
     // Create a contract call context for each address
-    const addressesCall = addressesList.map((address) => {
+    const balanceOfCall = addressesList.map((address) => {
         return { reference: "blanceOf: " + address, methodName: 'balanceOf', methodParameters: [address] }
     })
+    const workingBalancefCall = addressesList.map((address) => {
+        return { reference: "workingBlances: " + address, methodName: 'working_balances', methodParameters: [address] }
+    })
+    let ts = timestamp == 0 ? Math.floor(Date.now() / 1000) : timestamp;
     return {
         reference: gauge,
         contractAddress: gauge,
@@ -270,8 +282,12 @@ const contractCallContext = gaugeList.map((gauge) => {
             { reference: 'totalSupply', methodName: 'totalSupply' },
             // Call for Working Supply
             { reference: 'workingSupply', methodName: 'working_supply' },
+            // 
+            { reference: 'getCappedRelativeWeight', methodName: 'getCappedRelativeWeight', methodParameters: [ts] },
             // Call for user balances
-            ...addressesCall
+            ...balanceOfCall,
+            // Call for user working balances
+            ...workingBalancefCall
         ]
     }
 }
@@ -281,7 +297,7 @@ const contractCallContext = gaugeList.map((gauge) => {
 const results = await multicall.call(contractCallContext);
 
 // Remove useless words from the Gauge name 
-let wordsToRemove = ["Curve.fi", "Gauge", "Deposit"];
+let wordsToRemove = ["Gauge", "Deposit"];
 
 // Function to remove words from a string
 function removeWords(text) {
@@ -293,10 +309,11 @@ function removeWords(text) {
 }
 
 // Function to format the results
-function format(value) {
+function format(value, method) {
     switch (value.type) {
         case "BigNumber":
-            return parseFloat(ethers.utils.formatEther(value)).toFixed(numberOfDecimals);
+            if (method == "getCappedRelativeWeight") return parseFloat(ethers.utils.formatUnits(value, 0));
+            else return parseFloat(ethers.utils.formatEther(value));
         default:
             return value;
     }
@@ -304,19 +321,22 @@ function format(value) {
 
 // Create an empyt object with the results
 let objectResults = {};
+
 // Loop through the results and add them to the object
 Object.keys(results.results).forEach((key) => {
     // cache result
     let result = results.results[key];
     // cache name
     let name = result.callsReturnContext[0].returnValues[0];
+    name = !!name?.length ? removeWords(name) : key;
 
     // Initialize the object
-    objectResults[!!name?.length ? removeWords(name) : key] = {};
+    objectResults[name] = {};
     // Loop through the results and add them to the object
     result.callsReturnContext.forEach((call) => {
-        objectResults[!!name?.length ? removeWords(name) : key][call.reference] = format(call.returnValues[0] || 0);
+        objectResults[name][call.reference] = format(call.returnValues[0] || 0, call.methodName);
     });
+    objectResults[name].address = key;
 
 });
 
