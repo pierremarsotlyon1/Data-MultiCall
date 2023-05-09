@@ -231,6 +231,17 @@ const gaugeList = [
     "0xfa712ee4788c042e2b7bb55e6cb8ec569c4530c1",
     "0x6a69ffd1353fa129f7f9932bb68fa7be88f3888a"
 ]
+
+// Users addresses (can be used for lockers too)
+const addressesList = [
+    "0x989AEb4d175e16225E39E87d0D97A3360524AD80",
+    "0x52f541764E6e90eeBc5c21Ff570De0e2D63766B6",
+    "0x52f541764E6e90eeBc5c21Ff570De0e2D63766B6"
+]
+
+// Number of decimals to use
+const numberOfDecimals = 2;
+
 ////////////////////////////////////////////////////////////////
 /// --- Nothing to change below this line!!
 ////////////////////////////////////////////////////////////////
@@ -239,32 +250,28 @@ const gaugeList = [
 // Create a provider for the Ethereum mainnet, using public Llama RPC node
 let provider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
 
-// Convex veCRV Locker
-const CONVEX = "0x989AEb4d175e16225E39E87d0D97A3360524AD80";
-// StakeDAO veCRV Locker
-const STAKEDAO = "0x52f541764E6e90eeBc5c21Ff570De0e2D63766B6";
-
-
 // Create a new instance of the multicall object
 const multicall = new Multicall({ ethersProvider: provider, tryAggregate: true });
 
 // Create a contract call context for each gauge
 const contractCallContext = gaugeList.map((gauge) => {
+    // Create a contract call context for each address
+    const addressesCall = addressesList.map((address) => {
+        return { reference: "blanceOf: " + address, methodName: 'balanceOf', methodParameters: [address] }
+    })
     return {
         reference: gauge,
         contractAddress: gauge,
         abi: gaugeAbi,
         calls: [
-            // Cal for Total Supply
-            { reference: 'totalSupplyCall', methodName: 'totalSupply' },
-            // Call for Convex veCRV Locker Balance
-            { reference: 'balanceOfConvexCall', methodName: 'balanceOf', methodParameters: [CONVEX] },
-            // Call for StakeDAO veCRV Locker Balance
-            { reference: 'balanceOfStakeDAOCall', methodName: 'balanceOf', methodParameters: [STAKEDAO] },
-            // Call for Working Supply
-            { reference: 'workingSupplyCall', methodName: 'working_supply' },
             // Call for Gauge Name
-            { reference: 'nameCall', methodName: 'name' }
+            { reference: 'name', methodName: 'name' },
+            // Cal for Total Supply
+            { reference: 'totalSupply', methodName: 'totalSupply' },
+            // Call for Working Supply
+            { reference: 'workingSupply', methodName: 'working_supply' },
+            // Call for user balances
+            ...addressesCall
         ]
     }
 }
@@ -285,6 +292,16 @@ function removeWords(text) {
 
 }
 
+// Function to format the results
+function format(value) {
+    switch (value.type) {
+        case "BigNumber":
+            return parseFloat(ethers.utils.formatEther(value)).toFixed(numberOfDecimals);
+        default:
+            return value;
+    }
+}
+
 // Create an empyt object with the results
 let objectResults = {};
 // Loop through the results and add them to the object
@@ -292,15 +309,15 @@ Object.keys(results.results).forEach((key) => {
     // cache result
     let result = results.results[key];
     // cache name
-    let name = result.callsReturnContext[4].returnValues[0];
-    // add to object
-    objectResults[!!name?.length ? removeWords(name) : "NaN"] = {
-        totalSupply: parseFloat(ethers.utils.formatEther(result.callsReturnContext[0].returnValues[0] || 0)).toFixed(2),
-        balanceOfConvex: parseFloat(ethers.utils.formatEther(result.callsReturnContext[1].returnValues[0] || 0)).toFixed(2),
-        balanceOfStakeDAO: parseFloat(ethers.utils.formatEther(result.callsReturnContext[2].returnValues[0] || 0)).toFixed(2),
-        workingSupply: parseFloat(ethers.utils.formatEther(result.callsReturnContext[3].returnValues[0] || 0)).toFixed(2),
-        address: key
-    }
+    let name = result.callsReturnContext[0].returnValues[0];
+
+    // Initialize the object
+    objectResults[!!name?.length ? removeWords(name) : key] = {};
+    // Loop through the results and add them to the object
+    result.callsReturnContext.forEach((call) => {
+        objectResults[!!name?.length ? removeWords(name) : key][call.reference] = format(call.returnValues[0] || 0);
+    });
+
 });
 
 // Write the object to a JSON file
