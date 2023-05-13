@@ -80,7 +80,7 @@ function removeWords(text) {
 }
 
 // Create an empyt object with the results
-let objectResults = {};
+let objectResults = [];
 
 // Loop through the results and add them to the object
 Object.keys(results.results).forEach((key) => {
@@ -92,7 +92,7 @@ Object.keys(results.results).forEach((key) => {
 
     let totalSupply = parseFloat(utils.formatUnits(BigNumber.from(result.callsReturnContext[1].returnValues[0])));
 
-    objectResults[name] = [];
+    const data = [];
 
     for (let i = 0; i < addressesList.length; i++) {
         const balanceOf = parseFloat(utils.formatUnits(BigNumber.from(result.callsReturnContext[i + 2].returnValues[0]), 18));
@@ -102,11 +102,17 @@ Object.keys(results.results).forEach((key) => {
             continue;
         }
 
-        objectResults[name].push({
-            address: addressesList[i],
+        data.push({
+            userAddress: addressesList[i],
             percentage,
         })
     }
+
+    objectResults.push({
+        name,
+        gaugeAddress: key,
+        data,
+    });
 });
 
 // Write the object to a JSON file
