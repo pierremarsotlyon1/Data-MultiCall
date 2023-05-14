@@ -152,10 +152,12 @@ for (let i = 0; i < poolLength; i++) {
 const poolInfos = await multicall.call(poolInfosCall);
 
 const mapGaugeCrvRewards = {};
+const mapCrvRewardsGauge = {};
 
 for (let i = 0; i < poolLength; i++) {
     const data = poolInfos.results[BOOSTER + i].callsReturnContext[0];
     mapGaugeCrvRewards[data.returnValues[2].toLowerCase()] = data.returnValues[3];
+    mapCrvRewardsGauge[data.returnValues[3].toLowerCase()] = data.returnValues[2];
 }
 
 // Create a contract call context for each gauge
@@ -212,8 +214,6 @@ Object.keys(results.results).forEach((key) => {
 
     const data = [];
 
-
-
     for (let i = 0; i < addressesList.length; i++) {
         const balanceOf = parseFloat(utils.formatUnits(BigNumber.from(result.callsReturnContext[i + 2].returnValues[0]), 18));
 
@@ -230,7 +230,8 @@ Object.keys(results.results).forEach((key) => {
 
     objectResults.push({
         name,
-        gaugeAddress: key,
+        auraVaultAddress: key,
+        gaugeAddress: mapCrvRewardsGauge[key.toLowerCase()] || key,
         data,
     });
 });
