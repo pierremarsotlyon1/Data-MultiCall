@@ -167,7 +167,10 @@ const contractCallContext = gaugeList.map((gauge) => {
         return { reference: "blanceOf: " + address, methodName: 'balanceOf', methodParameters: [address] }
     })
 
-    const realGauge = mapGaugeCrvRewards[gauge.toLowerCase()] || gauge;
+    if(!mapGaugeCrvRewards[gauge.toLowerCase()]) {
+        return null;
+    }
+    const realGauge = mapGaugeCrvRewards[gauge.toLowerCase()];
     return {
         reference: realGauge,
         contractAddress: realGauge,
@@ -182,7 +185,7 @@ const contractCallContext = gaugeList.map((gauge) => {
         ]
     }
 }
-);
+).filter((a) => a !== null);
 
 // Execute the multicall
 const results = await multicall.call(contractCallContext);
@@ -214,6 +217,7 @@ Object.keys(results.results).forEach((key) => {
 
     const data = [];
 
+
     for (let i = 0; i < addressesList.length; i++) {
         const balanceOf = parseFloat(utils.formatUnits(BigNumber.from(result.callsReturnContext[i + 2].returnValues[0]), 18));
 
@@ -222,9 +226,6 @@ Object.keys(results.results).forEach((key) => {
             continue;
         }
 
-        if(!percentage) {
-            console.log(key, totalSupply, balanceOf, percentage)
-        }
         data.push({
             userAddress: addressesList[i],
             percentage,
