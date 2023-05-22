@@ -167,7 +167,7 @@ const contractCallContext = gaugeList.map((gauge) => {
         return { reference: "blanceOf: " + address, methodName: 'balanceOf', methodParameters: [address] }
     })
 
-    if(!mapGaugeCrvRewards[gauge.toLowerCase()]) {
+    if (!mapGaugeCrvRewards[gauge.toLowerCase()]) {
         return null;
     }
     const realGauge = mapGaugeCrvRewards[gauge.toLowerCase()];
@@ -217,19 +217,15 @@ Object.keys(results.results).forEach((key) => {
 
     const data = [];
 
-
     for (let i = 0; i < addressesList.length; i++) {
         const balanceOf = parseFloat(utils.formatUnits(BigNumber.from(result.callsReturnContext[i + 2].returnValues[0]), 18));
 
         const percentage = balanceOf * 100 / (totalSupply === 0 ? 1 : totalSupply);
-        if (percentage === 0) {
-            continue;
-        }
 
         data.push({
             userAddress: addressesList[i],
             percentage,
-        })
+        });
     }
 
     objectResults.push({
